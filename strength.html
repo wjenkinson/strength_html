@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Strength Tracker</title>
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Strength%20Tracker%22%2C%22short_name%22%3A%22Strength%22%2C%22display%22%3A%22standalone%22%2C%22start_url%22%3A%22.%22%2C%22background_color%22%3A%22%23161616%22%2C%22theme_color%22%3A%22%23161616%22%7D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Strength">
+<meta name="theme-color" content="#161616">
+<style>
+  :root {
+    --bg: #f7f6f4;
+    --card: #ffffff;
+    --border: #e4e1db;
+    --text: #1c1b19;
+    --text-dim: #6b6862;
+    --accent: #b5502f;
+    --accent-text: #ffffff;
+    --ready: #3f7d4f;
+    --ready-bg: #eaf3ec;
+    --cooling: #b5732f;
+    --cooling-bg: #faf1e6;
+    --danger: #a8402f;
+    --track: #ece9e3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #171614;
+      --card: #221f1c;
+      --border: #37332d;
+      --text: #f0ede7;
+      --text-dim: #9c988f;
+      --accent: #d97a4f;
+      --accent-text: #1c1b19;
+      --ready: #7fc493;
+      --ready-bg: #1e2b21;
+      --cooling: #e0a262;
+      --cooling-bg: #2e2418;
+      --danger: #e08268;
+      --track: #2c2925;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171614;
+    --card: #221f1c;
+    --border: #37332d;
+    --text: #f0ede7;
+    --text-dim: #9c988f;
+    --accent: #d97a4f;
+    --accent-text: #1c1b19;
+    --ready: #7fc493;
+    --ready-bg: #1e2b21;
+    --cooling: #e0a262;
+    --cooling-bg: #2e2418;
+    --danger: #e08268;
+    --track: #2c2925;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+  }
+  header.top {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    background: var(--bg);
+    z-index: 5;
+    padding: 4px 0 12px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .metric {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .metric .val { font-size: 1.15rem; font-weight: 600; }
+  .metric .lbl { font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  h2.section {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin: 18px 0 8px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .card-name { font-weight: 600; font-size: 0.98rem; }
+  .card-sub { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+  .badge {
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge.ready { color: var(--ready); background: var(--ready-bg); }
+  .badge.cooling { color: var(--cooling); background: var(--cooling-bg); }
+
+  .last-done { font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; }
+
+  .progress-wrap { margin-top: 8px; }
+  .progress-track {
+    height: 6px;
+    background: var(--track);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: var(--cooling); border-radius: 4px; }
+  .progress-caption { font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; }
+
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  button.act {
+    flex: 1;
+    padding: 9px 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.act.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.act:disabled { opacity: 0.4; cursor: default; }
+  button.act.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+  .empty { color: var(--text-dim); font-size: 0.88rem; padding: 8px 0; }
+
+  /* Detail overlay */
+  .detail {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 20;
+    overflow-y: auto;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
+  .detail-inner { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 8px 0;
+    cursor: pointer;
+  }
+  .detail h1 { margin-top: 8px; }
+  .detail-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .detail-metrics .metric .val { font-size: 0.92rem; }
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .status-line {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .status-line.ready { background: var(--ready-bg); color: var(--ready); }
+  .status-line.cooling { background: var(--cooling-bg); color: var(--cooling); }
+  .desc p { line-height: 1.5; font-size: 0.92rem; color: var(--text); white-space: pre-wrap; }
+
+  footer.bottom {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  footer.bottom button {
+    flex: 1;
+    min-width: 130px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Exercise data — ported as-is from exercises.py
+  // ---------------------------------------------------------------------
+  const EXERCISES = {
+    primary: [
+      { id: "deadlift", name: "Deadlift", rank: 1, movement: "Hinge", target: "120 kg — 3 x 5", cooldown_hours: 72,
+        description: "Builds posterior chain strength — the entire back side of the body from hamstrings through glutes and spinal erectors. Reinforces safe lifting mechanics that transfer to everyday movements like picking things up off the floor. Protects against lower back weakness, which is one of the most common sources of chronic pain in sedentary adults.\n\nThe deadlift is ranked first because it loads the most muscle mass in a single movement and has the longest recovery window. Maintaining a 1.5x bodyweight deadlift places you well above the average adult in structural resilience." },
+      { id: "pullups", name: "Pull-ups / Chin-ups", rank: 2, movement: "Vertical Pull", target: "Bodyweight — 5 x 6", cooldown_hours: 72,
+        description: "Strengthens lats and upper back, which are critical for shoulder health and posture. Maintains the ability to move your own bodyweight vertically — a key marker of functional fitness. Counters the forward shoulder posture caused by desk and laptop work.\n\nGrip variations can rotate between pull-ups (overhand), chin-ups (underhand), and neutral grip to distribute stress across the elbow and shoulder joints. 5 sets of 6 bodyweight reps is a solid maintenance level that preserves real pulling strength." },
+      { id: "front_squat", name: "Front Squat", rank: 3, movement: "Squat / Knee Dominant", target: "80 kg — 3 x 5", cooldown_hours: 72,
+        description: "Builds leg strength with lower spinal load than a back squat. The front-loaded barbell position forces an upright torso, which improves posture and core engagement simultaneously. A safer long-term alternative to heavy back squats for maintaining knee-dominant strength.\n\nMaintaining a bodyweight front squat (80 kg for an 80 kg individual) keeps leg strength well above baseline and supports activities like hiking, stairs, and getting up from the floor with ease." },
+      { id: "overhead_press", name: "Overhead Press", rank: 4, movement: "Vertical Push", target: "40 kg — 3 x 5", cooldown_hours: 36,
+        description: "Strengthens shoulders and triceps through a full overhead range of motion. Improves scapular stability, which protects the shoulder joint during all other upper-body movements. Balances the pulling volume from rows and pull-ups to keep the shoulder girdle healthy.\n\nThe overhead press is one of the simplest tests of upper-body pressing strength. A half-bodyweight press maintained over time is a strong indicator of shoulder durability." },
+      { id: "row", name: "Row (Barbell or Dumbbell)", rank: 5, movement: "Horizontal Pull", target: "60 kg — 3 x 8", cooldown_hours: 36,
+        description: "Reinforces upper-back strength by training scapular retraction under load. Directly supports pull-up performance and maintains the scapular control needed for healthy shoulders.\n\nBarbell or dumbbell variations both work. The row complements the vertical pull by training the back in a horizontal plane, which is important for postural balance and injury prevention." },
+      { id: "farmer_carry", name: "Farmer Carry", rank: 6, movement: "Carry / Core Stabilization", target: "~40 kg per hand — 3 x 30 m", cooldown_hours: 72,
+        description: "Develops grip strength, core stability, and postural integrity under load — all at once. The farmer carry is one of the most functional exercises because it directly mimics carrying heavy objects in daily life.\n\nStrong grip and a stable trunk under load protect against injuries during everyday tasks. This exercise also conditions the traps and upper back isometrically." },
+      { id: "rowing_machine", name: "Rowing Machine", rank: 7, movement: "Full-body Conditioning", target: "2000 m in 8 min", cooldown_hours: 36,
+        description: "Low-impact cardiovascular conditioning that also reinforces the hip hinge and upper-back engagement used in deadlifts and rows. Improves aerobic capacity without joint stress.\n\nThe rowing machine is the best gym cardio option for this system because it trains movement patterns that overlap with the strength exercises. A 2000 m row under 8 minutes is a solid general fitness benchmark." },
+      { id: "hanging_leg_raise", name: "Hanging Leg Raise", rank: 8, movement: "Anterior Core", target: "3 x 12 reps", cooldown_hours: 36,
+        description: "Strengthens the lower abdominals and pelvic control, which improves spinal stability and supports heavy compound lifts. The hanging position also builds grip endurance as a secondary benefit.\n\nThis is the primary anterior core exercise in the system. It trains the abs through a full range of motion under bodyweight, which is more demanding than floor-based alternatives." },
+      { id: "back_extension", name: "Back Extension", rank: 9, movement: "Posterior Chain Endurance", target: "3 x 15 reps", cooldown_hours: 72,
+        description: "Builds endurance in the spinal erectors and glutes, which protects the lower back and counters long periods of sitting. This is a higher-rep accessory that complements the heavier deadlift.\n\nPerformed on a Roman chair or GHD, back extensions keep the posterior chain conditioned between deadlift sessions and reduce the risk of lower back fatigue during daily activities." },
+      { id: "face_pull", name: "Face Pull", rank: 10, movement: "Scapular Stability / Rear Delts", target: "15 kg — 3 x 15 reps", cooldown_hours: 36,
+        description: "Restores shoulder balance by strengthening external rotation and scapular retraction. Helps prevent shoulder and posture problems caused by desk work and forward-biased pressing movements.\n\nFace pulls are a low-load, high-frequency exercise that can be done almost every session. They serve as prehab for the shoulder joint and keep the rear delts and rotator cuff conditioned." }
+    ],
+    fallback: [
+      { id: "one_arm_pushup", name: "One-arm Push-up", rank: 1, movement: "Push", target: "3 x 5 per side", cooldown_hours: 72,
+        description: "A unilateral progression of the push-up that dramatically increases the strength demand on the chest, shoulder, triceps, and core. Because most of the load shifts to one arm, the exercise also develops strong anti-rotation control through the torso.\n\nIn a minimalist training setup, the one-arm push-up is one of the most effective ways to keep building pressing strength without adding weight.\n\nProgression ladder:\nPush-ups → decline push-ups → archer push-ups → uneven push-ups (one hand elevated) → one-arm push-ups.\n\nKeep the body rigid, feet slightly wider than shoulder width, and avoid twisting through the hips as you descend." },
+      { id: "pistol_squat", name: "Pistol Squat", rank: 2, movement: "Squat", target: "3 x 5 per leg", cooldown_hours: 72,
+        description: "Advanced single-leg squat that builds strong knees, hips, and balance without needing external weight. The pistol squat loads nearly the full bodyweight through one leg, making it one of the most effective lower-body strength movements available in a minimalist setup.\n\nThis movement reinforces joint stability, ankle mobility, and glute activation while counteracting the weakness that develops from long periods of sitting.\n\nProgression ladder:\nRomanian split squats → Bulgarian split squats → assisted pistol squats (holding support) → box pistols → full pistol squats.\n\nFocus on slow, controlled descents and keep the knee tracking over the toes. Quality matters more than depth or speed." },
+      { id: "pushups", name: "Push-ups", rank: 3, movement: "Push", target: "3 x 20", cooldown_hours: 36,
+        description: "Maintains pressing strength with zero equipment. Push-ups train the chest, shoulders, and triceps while also engaging the core as a stabilizer. The easiest anywhere movement in the fallback layer.\n\nWhen gym access is unavailable, push-ups preserve the push pattern and prevent strength decay in the pressing muscles. Variations like diamond, wide, or decline can add difficulty." },
+      { id: "goblet_squats", name: "Goblet Squats", rank: 4, movement: "Squat", target: "3 x 15", cooldown_hours: 36,
+        description: "Maintains knee and hip mobility while reinforcing the squat pattern. The goblet position with a dumbbell or kettlebell keeps the torso upright and trains similar mechanics to the front squat.\n\nHigher reps at lighter weight preserve joint health and movement quality between gym sessions. This is the primary fallback for the squat pattern." },
+      { id: "dumbbell_rows", name: "Dumbbell Rows", rank: 5, movement: "Horizontal Pull", target: "3 x 20 (slow tempo)", cooldown_hours: 36,
+        description: "Upper back maintenance with minimal equipment — just one light dumbbell. While the weight is not heavy enough to build maximal pulling strength, high-rep rows maintain scapular movement and upper-back activation that counteract the forward shoulder posture created by desk work.\n\nPerformed slowly, dumbbell rows restore blood flow to the mid-back and rear delts, which helps prevent the stiffness and rounded shoulders common in sedentary work.\n\nFocus on pulling the elbow back while squeezing the shoulder blade toward the spine. Use controlled tempo rather than speed." },
+      { id: "plank", name: "Plank", rank: 6, movement: "Core Stabilization", target: "3 x 60 seconds", cooldown_hours: 36,
+        description: "Core endurance and spinal stability with no equipment. The plank trains the deep stabilizers of the trunk, which support every heavy compound lift and protect the spine during daily activities.\n\nThree sets of 60 seconds is enough to maintain core endurance. The plank is the lowest-friction core exercise and can be done anywhere at any time." },
+      { id: "glute_bridge", name: "Glute Bridges", rank: 7, movement: "Hinge", target: "3 x 15", cooldown_hours: 36,
+        description: "A simple but powerful movement that activates the glutes and reinforces the hip hinge pattern. Glute bridges help counteract the glute inhibition and hip tightness caused by long hours of sitting.\n\nStrong glutes support the lower back, stabilize the knees, and improve overall posture. This makes glute bridges one of the most valuable maintenance exercises for desk-based work.\n\nDrive through the heels, squeeze the glutes at the top, and keep the lower back neutral throughout the movement." },
+      { id: "side_plank", name: "Side Plank", rank: 8, movement: "Core", target: "3 x 30 seconds per side", cooldown_hours: 36,
+        description: "Builds lateral core stability and strengthens the muscles that protect the spine from side-to-side collapse. Side planks primarily train the obliques and deep stabilizing muscles around the torso.\n\nThis movement is particularly valuable for people who spend long hours sitting at a computer, as it restores core engagement and postural control that desk work tends to weaken.\n\nKeep the body in a straight line from head to feet, avoid letting the hips sag, and breathe slowly while holding the position." }
+    ]
+  };
+
+  function getExercises(layer) { return EXERCISES[layer] || []; }
+  function getExerciseById(id) {
+    for (const layer of Object.values(EXERCISES)) {
+      for (const ex of layer) if (ex.id === id) return ex;
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------
+  // Event store — ported from events.py. Same shape, localStorage instead
+  // of a CSV file. Event-sourced: "done" and "undo" are both events, never
+  // an in-place edit, so the history stays an honest log.
+  // ---------------------------------------------------------------------
+  const STORAGE_KEY = "strength_events_v1";
+
+  function loadEvents() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error("Failed to read stored events, starting empty.", e);
+      return [];
+    }
+  }
+
+  function saveEvents(events) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+  }
+
+  function uuid() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  function localDateString(d) {
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function appendEvent(exerciseId, layer, action, targetEventId) {
+    const events = loadEvents();
+    const now = new Date();
+    events.push({
+      event_id: uuid(),
+      timestamp_utc: now.toISOString(),
+      local_date: localDateString(now),
+      exercise_id: exerciseId,
+      layer: layer,
+      action: action,
+      target_event_id: targetEventId || "",
+      note: ""
+    });
+    saveEvents(events);
+  }
+
+  function resolveValidChecks(events) {
+    const unchecked = new Set();
+    for (const e of events) {
+      if (e.action === "uncheck" && e.target_event_id) unchecked.add(e.target_event_id);
+    }
+    return events.filter(e => e.action === "check" && !unchecked.has(e.event_id));
+  }
+
+  function getLastValidCompletion(validChecks, exerciseId) {
+    let last = null, lastEvent = null;
+    for (const e of validChecks) {
+      if (e.exercise_id !== exerciseId) continue;
+      const ts = new Date(e.timestamp_utc);
+      if (last === null || ts > last) { last = ts; lastEvent = e; }
+    }
+    return { last, lastEvent };
+  }
+
+  function getExerciseState(validChecks, exerciseId, cooldownHours) {
+    const { last, lastEvent } = getLastValidCompletion(validChecks, exerciseId);
+    const now = new Date();
+
+    if (last === null) {
+      return { ready: true, last_completion: null, last_event_id: null, remaining_hours: 0, remaining_str: "" };
+    }
+
+    const elapsedHours = (now - last) / 3600000;
+    const remaining = cooldownHours - elapsedHours;
+
+    if (remaining <= 0) {
+      return { ready: true, last_completion: last, last_event_id: lastEvent.event_id, remaining_hours: 0, remaining_str: "" };
+    }
+
+    let remainingStr;
+    if (remaining >= 24) {
+      const days = Math.floor(remaining / 24), hours = Math.floor(remaining % 24);
+      remainingStr = `${days}d ${hours}h`;
+    } else {
+      const hours = Math.floor(remaining), mins = Math.floor((remaining - hours) * 60);
+      remainingStr = `${hours}h ${mins}m`;
+    }
+
+    return { ready: false, last_completion: last, last_event_id: lastEvent.event_id, remaining_hours: remaining, remaining_str: remainingStr };
+  }
+
+  // ---------------------------------------------------------------------
+  // Streaks — ported from streaks.py, matches its test suite's semantics
+  // ---------------------------------------------------------------------
+  function computeActiveDates(validChecks) {
+    const dates = new Set();
+    for (const e of validChecks) {
+      if (e.local_date) dates.add(e.local_date);
+    }
+    return dates;
+  }
+
+  function toDate(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+  function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function dateStr(d) { return localDateString(d); }
+
+  function computeStreaks(activeDateStrs) {
+    if (activeDateStrs.size === 0) return [0, 0];
+
+    const sorted = Array.from(activeDateStrs).sort();
+    const sortedDates = sorted.map(toDate);
+
+    let best = 1, currentRun = 1;
+    for (let i = 1; i < sortedDates.length; i++) {
+      const diffDays = Math.round((sortedDates[i] - sortedDates[i - 1]) / 86400000);
+      if (diffDays === 1) { currentRun += 1; best = Math.max(best, currentRun); }
+      else { currentRun = 1; }
+    }
+
+    const today = new Date();
+    const todayStr = dateStr(today);
+    const yesterdayStr = dateStr(addDays(today, -1));
+
+    if (!activeDateStrs.has(todayStr) && !activeDateStrs.has(yesterdayStr)) {
+      return [0, best];
+    }
+
+    let checkDate = activeDateStrs.has(todayStr) ? today : addDays(today, -1);
+    let streak = 0;
+    while (activeDateStrs.has(dateStr(checkDate))) {
+      streak += 1;
+      checkDate = addDays(checkDate, -1);
+    }
+
+    return [streak, best];
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------
+  let state = { tab: "primary", detail: null, confirmUndo: null };
+
+  function fmtTimestamp(d) {
+    const opts = { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false };
+    return d.toLocaleString(undefined, opts);
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function render() {
+    const events = loadEvents();
+    const validChecks = resolveValidChecks(events);
+    const activeDates = computeActiveDates(validChecks);
+    const [currentStreak, bestStreak] = computeStreaks(activeDates);
+    const todayActive = activeDates.has(localDateString(new Date()));
+
+    const app = document.getElementById("app");
+
+    if (state.detail) {
+      app.innerHTML = renderDetail(state.detail, validChecks);
+      wireDetail(state.detail, validChecks);
+      return;
+    }
+
+    app.innerHTML = `
+      <header class="top">
+        <h1>Strength Tracker</h1>
+        <div class="metrics">
+          <div class="metric"><div class="val">${currentStreak} day${currentStreak !== 1 ? "s" : ""}</div><div class="lbl">Current streak</div></div>
+          <div class="metric"><div class="val">${bestStreak} day${bestStreak !== 1 ? "s" : ""}</div><div class="lbl">Best streak</div></div>
+          <div class="metric"><div class="val">${todayActive ? "Active" : "Not yet"}</div><div class="lbl">Today</div></div>
+        </div>
+        <div class="tabs">
+          <button class="tab ${state.tab === "primary" ? "active" : ""}" data-tab="primary">Primary (Gym)</button>
+          <button class="tab ${state.tab === "fallback" ? "active" : ""}" data-tab="fallback">Fallback (Home)</button>
+        </div>
+      </header>
+      <main id="tab-body"></main>
+      <footer class="bottom">
+        <button id="export-btn">Export backup</button>
+        <button id="import-btn">Import backup</button>
+        <input type="file" id="import-file" accept="application/json" style="display:none">
+      </footer>
+    `;
+
+    document.querySelectorAll(".tab").forEach(btn => {
+      btn.addEventListener("click", () => { state.tab = btn.dataset.tab; render(); });
+    });
+
+    document.getElementById("tab-body").innerHTML = renderTab(state.tab, validChecks);
+    wireTab(state.tab, validChecks);
+
+    document.getElementById("export-btn").addEventListener("click", exportBackup);
+    document.getElementById("import-btn").addEventListener("click", () => document.getElementById("import-file").click());
+    document.getElementById("import-file").addEventListener("change", importBackup);
+  }
+
+  function renderTab(layer, validChecks) {
+    const exercises = getExercises(layer);
+    const withState = exercises.map(ex => [ex, getExerciseState(validChecks, ex.id, ex.cooldown_hours)]);
+    const ready = withState.filter(([, s]) => s.ready).sort((a, b) => a[0].rank - b[0].rank);
+    const cooling = withState.filter(([, s]) => !s.ready).sort((a, b) => a[1].remaining_hours - b[1].remaining_hours);
+
+    if (exercises.length === 0) return `<p class="empty">No exercises configured for this layer.</p>`;
+
+    let html = "";
+    if (ready.length) {
+      html += `<h2 class="section">Ready (${ready.length})</h2>`;
+      html += ready.map(([ex, s]) => renderCard(ex, s, layer)).join("");
+    }
+    if (cooling.length) {
+      html += `<h2 class="section">Cooling Down (${cooling.length})</h2>`;
+      html += cooling.map(([ex, s]) => renderCard(ex, s, layer)).join("");
+    }
+    return html;
+  }
+
+  function renderCard(ex, s, layer) {
+    const progressPct = (!s.ready && s.last_completion)
+      ? Math.min(Math.max(((ex.cooldown_hours - s.remaining_hours) / ex.cooldown_hours) * 100, 0), 100)
+      : 0;
+    const confirming = state.confirmUndo === ex.id;
+
+    return `
+      <div class="card" data-ex="${ex.id}">
+        <div class="card-top">
+          <div>
+            <div class="card-name">#${ex.rank} ${escapeHtml(ex.name)}</div>
+            <div class="card-sub">${escapeHtml(ex.movement)} &nbsp;|&nbsp; Target: ${escapeHtml(ex.target)}</div>
+          </div>
+          <div class="badge ${s.ready ? "ready" : "cooling"}">${s.ready ? "Ready" : s.remaining_str}</div>
+        </div>
+        ${s.last_completion ? `<div class="last-done">Last completed: ${fmtTimestamp(s.last_completion)}</div>` : ""}
+        ${!s.ready && s.last_completion ? `
+          <div class="progress-wrap">
+            <div class="progress-track"><div class="progress-fill" style="width:${progressPct}%"></div></div>
+            <div class="progress-caption">Cooldown: ${s.remaining_str} remaining</div>
+          </div>` : ""}
+        <div class="actions">
+          <button class="act ${s.ready ? "primary" : ""}" data-action="done" data-ex="${ex.id}" data-layer="${layer}" ${s.ready ? "" : "disabled"}>Done</button>
+          <button class="act" data-action="info" data-ex="${ex.id}">Learn More</button>
+          ${confirming ? `
+            <button class="act danger" data-action="confirm-undo" data-ex="${ex.id}" data-layer="${layer}" data-event="${s.last_event_id}">Confirm</button>
+            <button class="act" data-action="cancel-undo" data-ex="${ex.id}">Cancel</button>
+          ` : `
+            <button class="act" data-action="undo" data-ex="${ex.id}" ${s.last_event_id ? "" : "disabled"}>Undo Last</button>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  function wireTab(layer, validChecks) {
+    document.querySelectorAll('[data-action="done"]').forEach(b => b.addEventListener("click", () => {
+      if (b.disabled) return;
+      appendEvent(b.dataset.ex, b.dataset.layer, "check");
+      render();
+    }));
+    document.querySelectorAll('[data-action="info"]').forEach(b => b.addEventListener("click", () => {
+      state.detail = b.dataset.ex;
+      render();
+    }));
+    document.querySelectorAll('[data-action="undo"]').forEach(b => b.addEventListener("click", () => {
+      if (b.disabled) return;
+      state.confirmUndo = b.dataset.ex;
+      render();
+    }));
+    document.querySelectorAll('[data-action="cancel-undo"]').forEach(b => b.addEventListener("click", () => {
+      state.confirmUndo = null;
+      render();
+    }));
+    document.querySelectorAll('[data-action="confirm-undo"]').forEach(b => b.addEventListener("click", () => {
+      appendEvent(b.dataset.ex, b.dataset.layer, "uncheck", b.dataset.event);
+      state.confirmUndo = null;
+      render();
+    }));
+  }
+
+  function renderDetail(exId, validChecks) {
+    const ex = getExerciseById(exId);
+    if (!ex) return `<button class="back-btn" data-action="back">&larr; Back</button><p>Exercise not found.</p>`;
+    const s = getExerciseState(validChecks, ex.id, ex.cooldown_hours);
+    const progressPct = (!s.ready && s.last_completion)
+      ? Math.min(Math.max(((ex.cooldown_hours - s.remaining_hours) / ex.cooldown_hours) * 100, 0), 100)
+      : 0;
+
+    return `
+      <div class="detail">
+        <div class="detail-inner">
+          <button class="back-btn" data-action="back">&larr; Back</button>
+          <h1>${escapeHtml(ex.name)}</h1>
+          <div class="detail-metrics">
+            <div class="metric"><div class="val">${escapeHtml(ex.movement)}</div><div class="lbl">Movement</div></div>
+            <div class="metric"><div class="val">${escapeHtml(ex.target)}</div><div class="lbl">Target</div></div>
+            <div class="metric"><div class="val">${ex.cooldown_hours}h</div><div class="lbl">Cooldown</div></div>
+          </div>
+          <hr class="div">
+          ${s.ready
+            ? `<div class="status-line ready">This exercise is ready to perform.</div>`
+            : `<div class="status-line cooling">Cooling down — ${s.remaining_str} remaining.</div>
+               <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" style="width:${progressPct}%"></div></div></div>`
+          }
+          ${s.last_completion ? `<div class="last-done">Last completed: ${fmtTimestamp(s.last_completion)}</div>` : ""}
+          <hr class="div">
+          <h2 class="section">Why it matters</h2>
+          <div class="desc"><p>${escapeHtml(ex.description)}</p></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireDetail() {
+    document.querySelector('[data-action="back"]').addEventListener("click", () => {
+      state.detail = null;
+      render();
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Backup / restore — this page's data lives only in this browser's
+  // local storage on this phone. Export makes a JSON copy you can save
+  // wherever you keep backups; import merges one back in (e.g. after
+  // reinstalling, or to combine history from two devices).
+  // ---------------------------------------------------------------------
+  let downloadsCapability = null;
+  if (typeof claude !== "undefined" && claude && typeof claude.use === "function") {
+    claude.use("downloads").then(d => { downloadsCapability = d; }).catch(() => {});
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
+  async function exportBackup() {
+    const events = loadEvents();
+    const data = JSON.stringify(events, null, 2);
+    const filename = `strength-backup-${localDateString(new Date())}.json`;
+
+    if (downloadsCapability) {
+      try {
+        await downloadsCapability.save({ filename, data });
+        showToast("Backup saved.");
+      } catch (e) {
+        if (e && e.code === "declined") return;
+        showToast("Could not save backup.");
+      }
+      return;
+    }
+
+    // Fallback: plain browser download link (works when opened as a
+    // normal web page rather than inside the viewer sandbox).
+    try {
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      showToast("Export isn't available here.");
+    }
+  }
+
+  function importBackup(evt) {
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const incoming = JSON.parse(reader.result);
+        if (!Array.isArray(incoming)) throw new Error("not an array");
+        const existing = loadEvents();
+        const seen = new Set(existing.map(e => e.event_id));
+        let added = 0;
+        for (const e of incoming) {
+          if (e && e.event_id && !seen.has(e.event_id) && (e.action === "check" || e.action === "uncheck")) {
+            existing.push(e);
+            seen.add(e.event_id);
+            added += 1;
+          }
+        }
+        saveEvents(existing);
+        showToast(`Imported ${added} event${added === 1 ? "" : "s"}.`);
+        render();
+      } catch (e) {
+        showToast("That file doesn't look like a backup.");
+      }
+    };
+    reader.readAsText(file);
+    evt.target.value = "";
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
